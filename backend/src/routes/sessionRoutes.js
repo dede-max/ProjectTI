@@ -1,0 +1,13 @@
+const express = require('express');
+const router = express.Router();
+const { buatSesi, dapatkanMuatanQR, dapatkanKehadiranSesi, dapatkanSesiDosen, dapatkanMatKuliahDosen, hapusSesi } = require('../controllers/sessionController');
+const { otentikasiToken, otorisasiPeran } = require('../middleware/auth');
+router.use(otentikasiToken);
+router.use(otorisasiPeran(['dosen']));
+router.get('/', dapatkanSesiDosen);
+router.get('/courses', dapatkanMatKuliahDosen);
+router.post('/create', buatSesi);
+router.get('/:id/qr', dapatkanMuatanQR);
+router.get('/:id/attendance', dapatkanKehadiranSesi);
+router.delete('/:id', hapusSesi);
+module.exports = router;

@@ -1,0 +1,130 @@
+openapi: 3.0.0
+info:
+  title: QR Attendance API
+  version: 1.0.0
+  description: Minimal API documentation for Ephemeral QR Attendance System.
+servers:
+  - url: /api
+paths:
+  /auth/login:
+    post:
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: Email or NIM
+                password:
+                  type: string
+              required: [username, password]
+      responses:
+        '200':
+          description: Successful login (Sets HTTPOnly JWT cookie)
+
+  /auth/logout:
+    post:
+      summary: User logout
+      responses:
+        '200':
+          description: Successfully logged out
+
+  /session/create:
+    post:
+      summary: Create a new attendance session (Lecturer only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course_id:
+                  type: integer
+                duration_min:
+                  type: integer
+                location:
+                  type: object
+                  properties:
+                    lat:
+                      type: number
+                    lon:
+                      type: number
+              required: [course_id, duration_min]
+      responses:
+        '200':
+          description: Returns new session ID
+
+  /session/{id}/qr:
+    get:
+      summary: Get current QR payload (Lecturer only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Current QR payload data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  qr_payload:
+                    type: string
+                  expires_at:
+                    type: string
+                    format: date-time
+
+  /attendance/scan:
+    post:
+      summary: Submit a QR scan (Student only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                qr_payload:
+                  type: string
+                lat:
+                  type: number
+                lon:
+                  type: number
+                device_info:
+                  type: string
+              required: [qr_payload]
+      responses:
+        '200':
+          description: Attendance successfully recorded
+        '400':
+          description: Invalid QR, Expired, or Already Used
+        '403':
+          description: Geo-location mismatch or anomalies detected
+
+  /session/{id}/attendance:
+    get:
+      summary: List attendance for a session (Lecturer only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of attendance records
+
+  /admin/anomalies:
+    get:
+      summary: List of flagged anomaly records (Admin only)
+      responses:
+        '200':
+          description: Anomalies retrieved successfully
