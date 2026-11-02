@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
+import { supabase } from "@/lib/supabaseClient";
 import { useParams, useRouter } from "next/navigation";
-import { io } from "socket.io-client";
 import { Users, Clock, ArrowLeft, Download, AlertTriangle, CheckCircle, Zap, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -20,8 +20,8 @@ export default function SessionDetail() {
     const [timeLeft, setTimeLeft] = useState(0);
     const [latestScan, setLatestScan] = useState(null);
 
-    const socketRef = useRef(null);
     const isInitialLoadRef = useRef(true);
+    const channelRef = useRef(null);
 
     useEffect(() => {
         if (!pengguna || pengguna.peran !== "dosen") {
@@ -31,33 +31,30 @@ export default function SessionDetail() {
         fetchAttendance();
         fetchQr();
 
-        // Setup Socket.IO
-        socketRef.current = io(process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '') : undefined, {
-            withCredentials: true,
-            path: '/socket.io'
-        });
+        // Supabase Realtime — subscribe ke insert kehadiran untuk sesi ini
+        const channel = supabase
+            .channel(`session-attendance-${id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'kehadiran',
+                filter: `id_sesi=eq.${id}`
+            }, () => {
+                fetchAttendance();
+            })
+            .subscribe();
 
-        socketRef.current.on('connect', () => {
-            socketRef.current.emit('join_session', id);
-        });
+        channelRef.current = channel;
 
-        socketRef.current.on('attendance_update', (newRecord) => {
-            setAttendance(prev => {
-                if (prev.some(p => p.nim === newRecord.nim)) return prev;
-                return [newRecord, ...prev];
-            });
-            setLatestScan(newRecord);
-            setTimeout(() => {
-                setLatestScan(curr => (curr?.nim === newRecord.nim && curr?.scanned_at === newRecord.scanned_at) ? null : curr);
-            }, 5000);
-        });
-
+        // Polling ringan sebagai backup (setiap 10 detik)
         const pollInterval = window.setInterval(() => {
             fetchAttendance();
-        }, 3000);
+        }, 10000);
 
         return () => {
-            socketRef.current?.disconnect();
+            if (channelRef.current) {
+                supabase.removeChannel(channelRef.current);
+            }
             window.clearInterval(pollInterval);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,9 +70,7 @@ export default function SessionDetail() {
             if (diff <= 0) {
                 setTimeLeft(0);
                 clearInterval(intv);
-                setTimeout(() => {
-                    fetchQr();
-                }, 500);
+                setTimeout(() => { fetchQr(); }, 500);
             } else {
                 setTimeLeft(diff);
             }
@@ -91,12 +86,11 @@ export default function SessionDetail() {
         try {
             const res = await api.get(`/session/${id}/attendance`);
             const newAttendanceData = res.data.attendance;
-            
+
             setAttendance(prev => {
                 if (!isInitialLoadRef.current && newAttendanceData.length > prev.length) {
                     const newRecord = newAttendanceData[0];
                     const existsInPrev = prev.some(p => p.nim === newRecord?.nim);
-                    
                     if (!existsInPrev && newRecord) {
                         setLatestScan(newRecord);
                         setTimeout(() => {
@@ -129,7 +123,7 @@ export default function SessionDetail() {
                 router.push('/lecturer/sessions');
                 return;
             }
-            if (e.response?.status === 400 && e.response?.data?.error === 'Session has already ended') {
+            if (e.response?.status === 400) {
                 setQrBase64(null);
                 setExpiresAt(null);
             } else {
@@ -159,7 +153,6 @@ export default function SessionDetail() {
 
     return (
         <div className="min-h-screen flex flex-col">
-            {/* Nav */}
             <nav className="glass-nav sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
                     <div className="flex items-center gap-4">
@@ -180,7 +173,6 @@ export default function SessionDetail() {
             </nav>
 
             <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-6 w-full animate-fade-in-up">
-                {/* QR Column */}
                 <div className="lg:col-span-1 glass-card p-8 flex flex-col items-center">
                     <div className="flex items-center gap-2 mb-2">
                         <QrCode className="h-5 w-5 text-indigo-400" />
@@ -191,12 +183,7 @@ export default function SessionDetail() {
                     {qrBase64 ? (
                         <div className="relative p-1 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-6 animate-pulse-glow">
                             <div className="bg-white p-4 rounded-xl">
-                                <QRCodeSVG
-                                    value={scanUrl}
-                                    size={230}
-                                    level={"H"}
-                                    includeMargin={true}
-                                />
+                                <QRCodeSVG value={scanUrl} size={230} level={"H"} includeMargin={true} />
                             </div>
                         </div>
                     ) : (
@@ -205,7 +192,6 @@ export default function SessionDetail() {
                         </div>
                     )}
 
-                    {/* Circular timer */}
                     <div className="w-full rounded-xl bg-indigo-500/10 border border-indigo-500/20 p-4 flex items-center justify-center gap-3">
                         <div className="relative h-10 w-10">
                             <svg className="h-10 w-10 -rotate-90" viewBox="0 0 40 40">
@@ -226,7 +212,6 @@ export default function SessionDetail() {
                     </div>
                 </div>
 
-                {/* Attendance Column */}
                 <div className="lg:col-span-2 glass-card overflow-hidden flex flex-col">
                     <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center">
                         <div className="flex items-center gap-2 font-bold text-white">
@@ -235,7 +220,6 @@ export default function SessionDetail() {
                         </div>
                     </div>
 
-                    {/* Notification Banner */}
                     {latestScan && (
                         <div className="mx-6 mt-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 animate-slide-in">
                             <div className="h-10 w-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">

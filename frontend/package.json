@@ -5,28 +5,29 @@
   "scripts": {
     "dev": "next dev",
     "dev:network": "next dev -H 0.0.0.0",
-    "dev:https": "local-ssl-proxy --source 3001 --target 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.0",
     "axios": "^1.13.6",
+    "bcryptjs": "^3.0.2",
     "html5-qrcode": "^2.3.8",
+    "jsonwebtoken": "^9.0.3",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
+    "pg": "^8.13.0",
     "qrcode.react": "^4.2.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "socket.io-client": "^4.8.3"
+    "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "autoprefixer": "^10.4.27",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "local-ssl-proxy": "^2.0.5",
     "postcss": "^8.5.8",
     "tailwindcss": "^4"
   }

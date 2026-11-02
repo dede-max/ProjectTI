@@ -46,7 +46,7 @@ async function resetAdmin() {
         );
         const cocok = await bcrypt.compare(passwordBaru, verifikasi[0].hash_kata_sandi);
         console.log('\n🔐 Verifikasi password:', cocok ? '✅ COCOK' : '❌ TIDAK COCOK');
-        
+
         process.exit(0);
     } catch (err) {
         console.error('❌ Error:', err.message);

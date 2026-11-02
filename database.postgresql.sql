@@ -114,3 +114,11 @@ INSERT INTO mata_kuliah (nama, id_dosen) VALUES
 -- Reset sequence agar id berikutnya tidak bertabrakan
 SELECT setval('pengguna_id_seq', (SELECT MAX(id) FROM pengguna));
 SELECT setval('mata_kuliah_id_seq', (SELECT MAX(id) FROM mata_kuliah));
+
+-- ==========================================
+-- SUPABASE REALTIME SETUP
+-- Aktifkan realtime untuk tabel kehadiran
+-- agar frontend bisa menerima update langsung
+-- ==========================================
+ALTER TABLE kehadiran REPLICA IDENTITY FULL;
+ALTER publication supabase_realtime ADD TABLE kehadiran;
